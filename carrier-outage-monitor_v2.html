@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>US Carrier Outage Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0B1120;color:#F1F5F9;min-height:100vh}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#111827}::-webkit-scrollbar-thumb{background:#1F2D45;border-radius:4px}
+@keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+@keyframes fadein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin .7s linear infinite}
+/* Header */
+#header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,#0a1628,#0B1120);border-bottom:1px solid #1F2D45;padding:12px 24px}
+#hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.sigbars{display:flex;align-items:flex-end;gap:3px;height:24px}
+.sigbars span{width:4px;border-radius:2px;display:block}
+.appname{font-weight:800;font-size:15px;letter-spacing:-.3px;line-height:1.1}
+.appsub{font-size:10px;color:#475569;margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Setup banner */
+#setup-banner{background:#0c1a2e;border-bottom:2px solid #1D4ED8;padding:10px 24px;display:none}
+#setup-inner{max-width:1100px;margin:0 auto;font-size:12px;color:#94A3B8;line-height:1.5}
+#setup-inner strong{color:#60A5FA}
+/* Alert banners */
+.abanner{padding:9px 24px;animation:fadein .25s ease}
+.ab-outage{background:#450A0A;border-bottom:2px solid #EF4444}
+.ab-ok{background:#052E16;border-bottom:2px solid #10B981}
+.ab-inner{max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ab-outage .ab-inner span{color:#FCA5A5;font-size:12px;font-weight:500}
+.ab-ok .ab-inner span{color:#6EE7B7;font-size:12px;font-weight:500}
+.ab-inner button{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0 2px;opacity:.7}
+.ab-inner button:hover{opacity:1}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:7px 13px;border-radius:10px;border:none;cursor:pointer;transition:opacity .15s,background .15s}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,#1D4ED8,#4F46E5);color:#fff}
+.btn-ghost{background:#111827;border:1px solid #1F2D45;color:#94A3B8}
+.btn-ghost:hover{border-color:#334155;color:#CBD5E1}
+.btn-green{background:#052E16;border:1px solid #10B981;color:#6EE7B7}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;display:none}
+.badge-o{background:#450A0A;border:1px solid #EF4444;color:#FCA5A5}
+.badge-w{background:#431407;border:1px solid #F59E0B;color:#FCD34D}
+.ftoggle{display:flex;border-radius:10px;overflow:hidden;border:1px solid #1F2D45}
+.ftbtn{padding:7px 13px;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:background .15s,color .15s}
+.ft-on{background:#1e293b;color:#E2E8F0}
+.ft-off{background:transparent;color:#475569}
+.ft-off:hover{color:#94A3B8;background:#0f1a2e}
+/* Main */
+#main{max-width:1100px;margin:0 auto;padding:24px}
+.sbar{display:flex;align-items:center;gap:14px;font-size:11px;color:#475569;margin-bottom:20px;flex-wrap:wrap}
+/* Grid */
+#cg{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:900px){#cg{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){#cg{grid-template-columns:repeat(2,1fr)}}
+/* Card */
+.ccard{border-radius:14px;padding:16px 18px;cursor:pointer;transition:background .18s,box-shadow .18s}
+.ccard:hover{background:#1a2235!important}
+.ctop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.cnrow{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.cdot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.cname{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B}
+.cstat{display:flex;align-items:center;gap:7px}
+.sdwrap{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;flex-shrink:0}
+.sd{width:10px;height:10px;border-radius:50%;display:block;position:relative;z-index:1}
+.sp{position:absolute;inset:0;border-radius:50%;opacity:.5;animation:ping 1.4s ease-out infinite}
+.slbl{font-size:12px;font-weight:700}
+.cright{text-align:right}
+.rc{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px;color:#F1F5F9;line-height:1}
+.ru{font-size:10px;color:#475569;margin-top:2px}
+.rp{font-size:10px;font-weight:600;margin-top:3px}
+.cbars{display:flex;align-items:flex-end;gap:3px;height:30px;margin-bottom:6px}
+.bar{border-radius:2px;flex-shrink:0}
+.cupd{font-size:10px;color:#334155;text-align:right}
+/* Detail */
+#dp{display:none;gap:16px;align-items:start}
+#dp.open{display:grid;grid-template-columns:265px 1fr}
+@media(max-width:760px){#dp.open{grid-template-columns:1fr}}
+.dleft{border-radius:16px;padding:20px;border:1px solid #1F2D45;background:#111827}
+.dtitle{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.dtdot{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.dtitle span{font-weight:700;font-size:14px}
+.drow{margin-bottom:16px}
+.dlbl{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:#475569;margin-bottom:5px}
+.dval{font-size:13px;color:#CBD5E1}
+.rbig{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:30px;color:#F1F5F9;line-height:1}
+.rpbig{font-size:11px;font-weight:600;margin-top:4px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:#1E293B;color:#94A3B8;margin:2px}
+.hs{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.hs span:last-child{font-size:13px;color:#94A3B8}
+a.elink{display:block;color:#38BDF8;font-size:12px;text-decoration:none;margin-bottom:3px}
+a.elink:hover{text-decoration:underline}
+.dright{border-radius:16px;padding:20px;border:1px solid #1F2D45;background:#111827}
+.fhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ftitle{font-weight:700;font-size:14px}
+.fsub{font-size:10px;color:#475569;margin-top:2px}
+.rfbtn{font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid #1F2D45;background:none;color:#475569;cursor:pointer}
+.rfbtn:hover{color:#94A3B8;border-color:#334155}
+.ferr{display:none;margin-bottom:12px;font-size:11px;color:#FCD34D;background:#431407;border:1px solid #F59E0B;border-radius:10px;padding:8px 12px}
+.fload{display:none;text-align:center;padding:36px 0;font-size:13px;color:#334155}
+#flist{max-height:400px;overflow-y:auto}
+.fi{padding:12px 0;border-bottom:1px solid #1E293B}
+.fi:last-child{border-bottom:none}
+.fii{display:flex;gap:10px;align-items:flex-start}
+.fidot{width:6px;height:6px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.fib{flex:1;min-width:0}
+.fbrow{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap}
+.fb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:1px 7px;border-radius:5px}
+.fb-news{color:#38BDF8;background:#0C2233}
+.fb-soc{color:#A78BFA;background:#1E1433}
+.ft{font-size:10px;color:#334155}
+.ftx{font-size:12px;line-height:1.55;color:#CBD5E1;word-break:break-word}
+a.ftx{text-decoration:none}a.ftx:hover{color:#F1F5F9}
+.fsrc{font-size:10px;color:#475569;margin-top:4px}
+/* Modals */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;align-items:center;justify-content:center;padding:20px}
+.mbg.open{display:flex}
+.mbox{background:#111827;border:1px solid #334155;border-radius:18px;padding:26px;width:100%;max-width:480px}
+.mt{font-weight:700;font-size:15px;margin-bottom:5px}
+.ms{font-size:11px;color:#64748B;margin-bottom:18px;line-height:1.6}
+.ms a{color:#38BDF8;text-decoration:none}.ms a:hover{text-decoration:underline}
+.ml{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:#64748B;margin-bottom:8px}
+.mc{background:#0B1120;border:1px solid #1F2D45;border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:#64748B;line-height:1.9}
+.mc a{color:#38BDF8;text-decoration:none}.mc a:hover{text-decoration:underline}
+.mc code{color:#A78BFA}
+.mi{width:100%;background:#0B1120;border:1px solid #334155;border-radius:10px;color:#F1F5F9;font-size:13px;padding:10px 13px;outline:none;transition:border-color .15s;font-family:inherit;margin-bottom:14px}
+.mi:focus{border-color:#3B82F6}.mi::placeholder{color:#334155}
+.mrow{display:flex;gap:8px;margin-bottom:14px}
+.mrow .mi{margin-bottom:0;flex:1}
+.mfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.tbtn{font-size:12px;font-weight:600;padding:7px 14px;border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;border:1px solid}
+.ton{background:#1D4ED8;border-color:#3B82F6;color:#fff}
+.toff{background:#1E293B;border-color:#334155;color:#94A3B8}
+.toff:hover{color:#CBD5E1}
+.eit{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:#1E293B;border-radius:10px;margin-bottom:6px}
+.eit span{font-size:12px;color:#94A3B8}
+.eit button{background:none;border:none;color:#EF4444;cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.eit button:hover{color:#F87171}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="hdr-inner">
+    <div class="logo">
+      <div class="sigbars">
+        <span style="height:10px;background:#38BDF8"></span>
+        <span style="height:16px;background:#818CF8"></span>
+        <span style="height:23px;background:#E879F9"></span>
+      </div>
+      <div>
+        <div class="appname">US Carrier Outage Monitor</div>
+        <div class="appsub" id="hdr-sub">Initializing…</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <span class="badge badge-o" id="badge-o"></span>
+      <span class="badge badge-w" id="badge-w"></span>
+      <button class="btn btn-ghost" id="btn-ckey" onclick="openModal('mclaude')">🔑 Claude API Key</button>
+      <button class="btn btn-ghost" id="btn-nkey" onclick="openModal('mnews')">📰 NewsAPI Key</button>
+      <div class="ftoggle">
+        <button class="ftbtn ft-on"  id="ft-ai"   onclick="setFeedSrc('ai')">🤖 AI</button>
+        <button class="ftbtn ft-off" id="ft-live" onclick="setFeedSrc('newsapi')">📰 Live</button>
+      </div>
+      <button class="btn btn-primary" id="btn-ref" onclick="scanCarriers()"><span id="ricon">⟳</span> Refresh</button>
+      <button class="btn btn-ghost" onclick="openModal('memail')">📧 Alerts</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP BANNER -->
+<div id="setup-banner">
+  <div id="setup-inner"></div>
+</div>
+
+<!-- ALERT CONTAINER -->
+<div id="alert-ct"></div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="sbar">
+    <span>Last scan: <strong id="last-scan" style="color:#94A3B8">—</strong></span>
+    <span style="color:#1F2D45">·</span><span>Auto-refresh every 60s</span>
+    <span id="email-bar" style="display:none">· 📧 <span id="ecnt">0</span> alert email(s)</span>
+    <span id="srcbar" style="margin-left:auto;color:#64748B;font-weight:500"></span>
+  </div>
+  <div id="cg"></div>
+  <div id="dp"></div>
+</div>
+
+<!-- CLAUDE KEY MODAL -->
+<div class="mbg" id="mclaude">
+  <div class="mbox">
+    <div class="mt">🔑 Claude API Key</div>
+    <div class="ms">AI가 장애 데이터와 뉴스 피드를 생성합니다.<br><span style="color:#38BDF8">키 발급: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com ↗</a></span></div>
+    <div class="ml">발급 방법</div>
+    <div class="mc">
+      1. <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> 접속 → 로그인<br>
+      2. 왼쪽 메뉴 <strong style="color:#E2E8F0">API Keys</strong> 클릭<br>
+      3. <strong style="color:#E2E8F0">Create Key</strong> 클릭 → 키 복사 (<code>sk-ant-...</code> 로 시작)<br>
+      4. 아래에 붙여넣기 → Save
+    </div>
+    <div class="ml">API Key</div>
+    <input class="mi" id="ci" type="password" placeholder="sk-ant-api03-..."/>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('mclaude')">Cancel</button>
+      <button class="btn" id="rm-c" style="display:none;background:#450A0A;border:1px solid #EF4444;color:#FCA5A5" onclick="rmClaudeKey()">Remove</button>
+      <button class="btn btn-primary" onclick="saveClaudeKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEWSAPI KEY MODAL -->
+<div class="mbg" id="mnews">
+  <div class="mbox">
+    <div class="mt">📰 NewsAPI Key</div>
+    <div class="ms">실제 통신 장애 뉴스 기사를 가져옵니다.<br><span style="color:#38BDF8">무료 플랜: 하루 100건 · 신용카드 불필요</span></div>
+    <div class="ml">발급 방법</div>
+    <div class="mc">
+      1. <a href="https://newsapi.org/register" target="_blank">newsapi.org/register</a> 접속<br>
+      2. 무료 계정 생성<br>
+      3. 대시보드에서 API 키 복사<br>
+      4. 아래에 붙여넣기 → Save
+    </div>
+    <div class="ml">NewsAPI Key</div>
+    <input class="mi" id="ni" type="text" placeholder="a1b2c3d4e5f60708…"/>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('mnews')">Cancel</button>
+      <button class="btn" id="rm-n" style="display:none;background:#450A0A;border:1px solid #EF4444;color:#FCA5A5" onclick="rmNewsKey()">Remove</button>
+      <button class="btn btn-primary" onclick="saveNewsKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL MODAL -->
+<div class="mbg" id="memail">
+  <div class="mbox">
+    <div class="mt">📧 Email Alert Settings</div>
+    <div class="ms">장애 감지 시 이메일 알림을 받습니다.<br><span style="color:#334155">실제 발송은 SendGrid/Mailgun 연동 필요.</span></div>
+    <div class="ml">알림 기준</div>
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button class="tbtn ton" id="tb-w" onclick="setThresh('warning')">⚠️ Warning 이상</button>
+      <button class="tbtn toff" id="tb-o" onclick="setThresh('outage')">🚨 Outage만</button>
+    </div>
+    <div class="ml">수신자 추가</div>
+    <div class="mrow">
+      <input class="mi" id="ei" type="email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')addEmail()"/>
+      <button class="btn btn-primary" onclick="addEmail()">Add</button>
+    </div>
+    <div id="elist" style="margin-bottom:14px"></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('memail')">Close</button>
+      <button class="btn btn-primary" onclick="saveEmail()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Carriers ──────────────────────────────────────────────────────────
+const CARRIERS=[
+  {id:"verizon", name:"Verizon",       color:"#CD040B",slug:"verizon",      tw:"verizonsupport",q:'Verizon outage OR "Verizon down" OR "Verizon network issue"'},
+  {id:"att",     name:"AT&T",          color:"#00A8E0",slug:"att",          tw:"attcares",      q:'AT&T outage OR "AT&T down" OR "AT&T network issue"'},
+  {id:"tmobile", name:"T-Mobile",      color:"#E20074",slug:"t-mobile",     tw:"tmobilehelp",   q:'T-Mobile outage OR "T-Mobile down" OR "T-Mobile network"'},
+  {id:"comcast", name:"Comcast",       color:"#FF6E00",slug:"comcast",      tw:"comcastcares",  q:'Comcast outage OR "Xfinity down" OR "Comcast internet outage"'},
+  {id:"dish",    name:"Dish/EchoStar", color:"#8B5CF6",slug:"dish-network", tw:"dish_answers",  q:'Dish Network outage OR EchoStar outage OR "Dish down"'},
+];
+const SEV={normal:{label:"Normal",color:"#10B981"},warning:{label:"Warning",color:"#F59E0B"},outage:{label:"Outage",color:"#EF4444"}};
+
+// ── State ─────────────────────────────────────────────────────────────
+let CK=localStorage.getItem("ck")||"";
+let NK=localStorage.getItem("nk")||"";
+let AE=JSON.parse(localStorage.getItem("ae")||"[]");
+let AT=localStorage.getItem("at")||"outage";
+let FS="ai", SEL="verizon", CD={}, PS={}, SL=false;
+
+// ── Helpers ───────────────────────────────────────────────────────────
+const cls=r=>r>300?"outage":r>80?"warning":"normal";
+const mkTrend=b=>Array.from({length:12},(_,i)=>Math.max(0,b+Math.floor((Math.random()-.5)*b*.8*(i/12))));
+const plbl=h=>!h?"last 1h":h<1?`last ${Math.round(h*60)}m`:h===1?"last 1h":`last ${h}h`;
+const tAgo=iso=>{const s=(Date.now()-new Date(iso))/1000;return s<60?`${~~s}s ago`:s<3600?`${~~(s/60)}m ago`:s<86400?`${~~(s/3600)}h ago`:`${~~(s/86400)}d ago`;};
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const picks=(a,n)=>[...a].sort(()=>Math.random()-.5).slice(0,n);
+
+// ── Mock data ─────────────────────────────────────────────────────────
+const MI=["No Signal","Slow Data","Call Drops","Internet Outage","TV Service","App Issues"];
+const MS=["Voice","Data","SMS","Internet","TV","5G"];
+const MC=["New York","Los Angeles","Chicago","Houston","Phoenix","Dallas","Miami","Seattle","Boston","Denver","Atlanta","San Francisco","Las Vegas","Detroit","Minneapolis"];
+const MN=["Reuters","AP News","CNBC","TechCrunch","The Verge","Ars Technica","Bloomberg","PCMag"];
+
+function mockScan(){
+  const spike=Math.random()<.3?pick(CARRIERS).id:null, data={};
+  CARRIERS.forEach(c=>{
+    const b=c.id===spike?rand(350,1800):rand(0,250), wh=pick([1,1,1,3,6,12,24]);
+    data[c.id]={reports:b,windowHours:wh,status:cls(b),hotspots:picks(MC,rand(1,3)),primaryIssue:pick(MI),affectedServices:picks(MS,rand(1,4)),trend:mkTrend(b)};
+  });
+  return data;
+}
+function mockFeed(name){
+  const now=Date.now(),items=[];
+  for(let i=0;i<8;i++){
+    const isN=Math.random()>.4,city=pick(MC),issue=pick(MI),ago=rand(60,7*3600)*1000;
+    items.push(isN?{type:"news",title:pick([`${name} faces widespread outage across ${city} metro area`,`Thousands of ${name} customers report service disruptions`,`${name} investigates network issues in ${city}`,`${name} outage: ${issue} problems reported in ${city}`,`${name} working to restore service after ${issue.toLowerCase()} issues`]),source:pick(MN),publishedAt:new Date(now-ago).toISOString(),url:null}:{type:"social",title:pick([`@${name.replace(/[^a-z]/gi,"")} my service has been down for 3 hours in ${city}! #outage`,`Anyone in ${city} having ${issue.toLowerCase()} issues with ${name}? 😤`,`${name} is completely down in ${city}. This is unacceptable.`,`Just got off the phone with ${name} support — they say ${city} should be restored soon.`,`${name} ${issue.toLowerCase()} affecting my whole office in ${city}.`]),source:`@user${rand(1000,9999)}`,publishedAt:new Date(now-ago).toISOString(),url:null});
+  }
+  return items.sort((a,b)=>new Date(b.publishedAt)-new Date(a.publishedAt));
+}
+
+// ── Claude API ────────────────────────────────────────────────────────
+async function claude(sys,usr,mt=900){
+  if(!CK) throw new Error("no key");
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":CK,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:mt,system:sys,messages:[{role:"user",content:usr}]})});
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||`HTTP ${r.status}`);}
+  return ((await r.json()).content?.[0]?.text||"").replace(/```json|```/g,"").trim();
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────
+async function scanCarriers(){
+  if(SL)return; SL=true;
+  const ic=document.getElementById("ricon"); ic.className="spin";
+  document.getElementById("btn-ref").disabled=true;
+  try{
+    let data;
+    if(CK){
+      const raw=await claude("You are a US telecom outage monitoring AI. Return ONLY valid JSON. No markdown.",`Generate realistic simulated outage data for: Verizon, AT&T, T-Mobile, Comcast, Dish/EchoStar.\nEach carrier:\n- reportCount: 0-2000\n- windowHours: number (1,3,6,12,24)\n- hotspots: 1-3 US city names\n- primaryIssue: one of "No Signal","Slow Data","Call Drops","Internet Outage","TV Service","App Issues"\n- affectedServices: subset of ["Voice","Data","SMS","Internet","TV","5G"]\nReturn: {"verizon":{...},"att":{...},"tmobile":{...},"comcast":{...},"dish":{...}}`);
+      const p=JSON.parse(raw); data={};
+      CARRIERS.forEach(c=>{const d=p[c.id]||{},cnt=d.reportCount??rand(0,100);data[c.id]={reports:cnt,windowHours:d.windowHours||1,status:cls(cnt),hotspots:d.hotspots||[],primaryIssue:d.primaryIssue||"—",affectedServices:d.affectedServices||[],trend:mkTrend(cnt)};});
+    } else { data=mockScan(); }
+    const now=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+    CARRIERS.forEach(c=>{
+      const s=data[c.id].status;
+      if(s==="outage"&&PS[c.id]!=="outage"){const d=data[c.id];pushAlert(`🚨 ${c.name}: Outage detected — ${d.reports.toLocaleString()} reports (${plbl(d.windowHours)})${d.hotspots?.length?" · "+d.hotspots.join(", "):""}`, "outage");}
+      PS[c.id]=s; data[c.id].lastChecked=now;
+    });
+    CD=data; renderGrid(); renderDetail(); updateHdr(now);
+  } catch(e){
+    pushAlert("⚠️ API error: "+e.message+" — using mock data","ok");
+    const data=mockScan(),now=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+    CARRIERS.forEach(c=>{data[c.id].lastChecked=now;}); CD=data; renderGrid(); renderDetail(); updateHdr(now);
+  } finally { SL=false; ic.className=""; document.getElementById("btn-ref").disabled=false; }
+}
+
+// ── Feed ──────────────────────────────────────────────────────────────
+async function fetchFeed(id){
+  const le=document.getElementById("flist"),lo=document.getElementById("fload"),fe=document.getElementById("ferr"),fs=document.getElementById("fsub");
+  if(!le)return;
+  le.innerHTML=""; if(lo)lo.style.display="block"; if(fe)fe.style.display="none";
+  let items=[],src="";
+  try{
+    if(FS==="newsapi"&&NK){
+      items=await fetchNews(id); src="📰 NewsAPI (real articles)";
+      if(!items.length){showFE("NewsAPI 결과 없음 — AI 피드로 대체");items=CK?await fetchAI(id):mockFeed(CARRIERS.find(c=>c.id===id)?.name||"");src="🤖 AI fallback";}
+    } else if(CK){items=await fetchAI(id);src="🤖 Claude AI simulation";}
+    else{items=mockFeed(CARRIERS.find(c=>c.id===id)?.name||"");src="🎲 Mock data (API 키 없음)";}
+  }catch(e){showFE("Error: "+e.message);items=mockFeed(CARRIERS.find(c=>c.id===id)?.name||"");src="🎲 Mock fallback";}
+  finally{if(lo)lo.style.display="none";if(fs)fs.textContent="Source: "+src;renderFeed(items);}
+}
+async function fetchNews(id){
+  const c=CARRIERS.find(x=>x.id===id);
+  const from=new Date(Date.now()-3*86400000).toISOString().split("T")[0];
+  const r=await fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(c.q)}&from=${from}&sortBy=publishedAt&language=en&pageSize=15&apiKey=${NK}`);
+  if(!r.ok){const e=await r.json();throw new Error(e.message||`HTTP ${r.status}`);}
+  return ((await r.json()).articles||[]).map(a=>({type:"news",title:a.title,source:a.source?.name,publishedAt:a.publishedAt,url:a.url}));
+}
+async function fetchAI(id){
+  const c=CARRIERS.find(x=>x.id===id);
+  return JSON.parse(await claude("Generate simulated telecom outage news and social posts. Return ONLY valid JSON array.",`Generate 8 realistic feed items for ${c.name}. Mix "news" and "social" types. Vary US cities.\nReturn: [{"type":"news|social","title":"...","source":"...","publishedAt":"ISO8601 within last 8h","url":null}]`,800));
+}
+function showFE(m){const e=document.getElementById("ferr");if(e){e.textContent=m;e.style.display="block";}}
+function renderFeed(items){
+  const el=document.getElementById("flist");if(!el)return;
+  if(!items||!items.length){el.innerHTML='<p style="color:#334155;font-size:13px;text-align:center;padding:36px 0">No articles found</p>';return;}
+  el.innerHTML=items.map(it=>{
+    const n=it.type==="news";
+    const tH=it.url?`<a class="ftx" href="${esc(it.url)}" target="_blank">${esc(it.title)} <span style="color:#475569">↗</span></a>`:`<div class="ftx">${esc(it.title)}</div>`;
+    return `<div class="fi"><div class="fii"><div class="fidot" style="background:${n?"#38BDF8":"#A78BFA"}"></div><div class="fib"><div class="fbrow"><span class="fb ${n?"fb-news":"fb-soc"}">${n?"📰 News":"🐦 Social"}</span><span class="ft">${tAgo(it.publishedAt||Date.now())}</span></div>${tH}${it.source?`<div class="fsrc">— ${esc(it.source)}</div>`:""}</div></div></div>`;
+  }).join("");
+}
+
+// ── Render grid ───────────────────────────────────────────────────────
+function renderGrid(){
+  const g=document.getElementById("cg"); g.innerHTML="";
+  CARRIERS.forEach(c=>{
+    const d=CD[c.id]||{},sv=SEV[d.status||"normal"],sel=c.id===SEL,tr=d.trend||Array(12).fill(0),tm=Math.max(...tr,1),per=plbl(d.windowHours);
+    const bars=tr.map((v,i)=>{const h=Math.max(4,Math.round((v/tm)*28)),col=v>200?"#EF4444":v>80?"#F59E0B":c.color;return `<div class="bar" style="width:4px;height:${h}px;background:${col};opacity:${(0.55+(i/12)*.45).toFixed(2)}"></div>`;}).join("");
+    const pulse=d.status==="outage"?`<span class="sp" style="background:${sv.color}"></span>`:"";
+    const el=document.createElement("div"); el.className="ccard";
+    el.style.cssText=`background:${sel?"#1a2235":"#111827"};border:1.5px solid ${sel?c.color:d.status==="outage"?"#ef444450":d.status==="warning"?"#f59e0b40":"#1F2D45"};box-shadow:${sel?`0 0 0 2px ${c.color}22`:""};`;
+    el.onclick=()=>{SEL=c.id;renderGrid();renderDetail();};
+    el.innerHTML=`<div class="ctop"><div><div class="cnrow"><div class="cdot" style="background:${c.color}"></div><span class="cname">${esc(c.name)}</span></div><div class="cstat"><span class="sdwrap">${pulse}<span class="sd" style="background:${sv.color}"></span></span><span class="slbl" style="color:${sv.color}">${sv.label}</span></div></div><div class="cright"><div class="rc">${(d.reports||0).toLocaleString()}</div><div class="ru">reports</div><div class="rp" style="color:${c.color}bb">${per}</div></div></div><div class="cbars">${bars}</div><div class="cupd">${d.lastChecked?`Updated ${d.lastChecked}`:"—"}</div>`;
+    g.appendChild(el);
+  });
+}
+
+// ── Render detail ─────────────────────────────────────────────────────
+function renderDetail(){
+  const pn=document.getElementById("dp"),c=CARRIERS.find(x=>x.id===SEL),d=CD[SEL];
+  if(!c||!d){pn.className="";pn.style.display="none";return;}
+  const sv=SEV[d.status||"normal"],per=plbl(d.windowHours),pulse=d.status==="outage"?`<span class="sp" style="background:${sv.color}"></span>`:"";
+  const svcs=(d.affectedServices||[]).map(s=>`<span class="tag">${esc(s)}</span>`).join("")||'<span style="color:#334155;font-size:12px">None</span>';
+  const spots=(d.hotspots||[]).map(h=>`<div class="hs"><span style="color:${c.color};font-size:10px">▲</span><span>${esc(h)}</span></div>`).join("")||'<span style="color:#334155;font-size:12px">No hotspots</span>';
+  pn.className="open";
+  pn.innerHTML=`
+  <div class="dleft" style="border-color:${c.color}33">
+    <div class="dtitle"><div class="dtdot" style="background:${c.color}"></div><span>${esc(c.name)}</span></div>
+    <div class="drow"><div class="dlbl">Status</div><div class="cstat"><span class="sdwrap" style="width:15px;height:15px">${pulse}<span class="sd" style="width:12px;height:12px;background:${sv.color}"></span></span><span style="font-weight:700;font-size:13px;color:${sv.color}">${sv.label}</span></div></div>
+    <div class="drow"><div class="dlbl">Reports</div><div class="rbig">${(d.reports||0).toLocaleString()}</div><div class="rpbig" style="color:${c.color}bb">${per}</div></div>
+    <div class="drow"><div class="dlbl">Primary Issue</div><div class="dval">${esc(d.primaryIssue||"—")}</div></div>
+    <div class="drow"><div class="dlbl">Affected Services</div><div style="display:flex;flex-wrap:wrap;gap:4px">${svcs}</div></div>
+    <div class="drow"><div class="dlbl">Hotspot Areas</div>${spots}</div>
+    <div class="drow" style="margin-bottom:0"><div class="dlbl">Links</div><a class="elink" href="https://twitter.com/${c.tw}" target="_blank">@${c.tw} ↗</a><a class="elink" href="https://downdetector.com/status/${c.slug}" target="_blank">Downdetector ↗</a></div>
+  </div>
+  <div class="dright">
+    <div class="fhdr"><div><div class="ftitle">News &amp; Social Feed — ${esc(c.name)}</div><div class="fsub" id="fsub"></div></div><button class="rfbtn" onclick="fetchFeed('${c.id}')">↻ Refresh</button></div>
+    <div class="ferr" id="ferr"></div><div class="fload" id="fload">Fetching feed…</div><div id="flist"></div>
+  </div>`;
+  fetchFeed(SEL);
+}
+
+// ── Header ────────────────────────────────────────────────────────────
+function updateHdr(ts){
+  document.getElementById("last-scan").textContent=ts;
+  const hasC=!!CK,hasN=FS==="newsapi"&&!!NK;
+  document.getElementById("hdr-sub").textContent=hasC?(hasN?"🟢 Claude + NewsAPI Live · 5 Carriers · 60s":"🤖 Claude AI · 5 Carriers · 60s"):"🎲 Mock Mode · API 키를 설정하면 실제 데이터 사용";
+  document.getElementById("srcbar").textContent=hasC?(hasN?"📰 NewsAPI+Claude":"🤖 Claude AI"):"🎲 Mock data";
+  const oc=Object.values(CD).filter(d=>d.status==="outage").length,wc=Object.values(CD).filter(d=>d.status==="warning").length;
+  const bo=document.getElementById("badge-o"),bw=document.getElementById("badge-w");
+  if(oc>0){bo.textContent=`🚨 ${oc} Outage${oc>1?"s":""}`;bo.style.display="inline";}else bo.style.display="none";
+  if(wc>0){bw.textContent=`⚠️ ${wc} Warning${wc>1?"s":""}`;bw.style.display="inline";}else bw.style.display="none";
+  updateSetup(); updateKeyBtns();
+}
+function updateSetup(){
+  const b=document.getElementById("setup-banner"),m=document.getElementById("setup-inner");
+  if(!CK){b.style.display="block";m.innerHTML='<strong>⚙️ Setup 필요:</strong> Claude API 키가 없어 Mock 데이터 모드로 실행 중입니다. 상단 <strong>🔑 Claude API Key</strong> 버튼을 클릭해 키를 입력하세요.';}
+  else b.style.display="none";
+}
+function updateKeyBtns(){
+  const cb=document.getElementById("btn-ckey"),nb=document.getElementById("btn-nkey");
+  if(CK){cb.textContent="✅ Claude Key";cb.className="btn btn-green";}else{cb.textContent="🔑 Claude API Key";cb.className="btn btn-ghost";}
+  if(NK){nb.textContent="✅ NewsAPI Key";nb.className="btn btn-green";}else{nb.textContent="📰 NewsAPI Key";nb.className="btn btn-ghost";}
+}
+
+// ── Alert ─────────────────────────────────────────────────────────────
+function pushAlert(msg,type="outage"){
+  const id="a"+Date.now(),el=document.createElement("div");
+  el.id=id;el.className=`abanner ab-${type==="outage"?"outage":"ok"}`;
+  el.innerHTML=`<div class="ab-inner"><span>${esc(msg)}</span><button onclick="document.getElementById('${id}').remove()" style="color:${type==="outage"?"#EF4444":"#10B981"}">×</button></div>`;
+  document.getElementById("alert-ct").prepend(el); setTimeout(()=>el?.remove(),15000);
+}
+
+// ── Feed source ───────────────────────────────────────────────────────
+function setFeedSrc(s){
+  if(s==="newsapi"&&!NK){openModal("mnews");return;}
+  FS=s;
+  document.getElementById("ft-ai").className=`ftbtn ${s==="ai"?"ft-on":"ft-off"}`;
+  const lb=document.getElementById("ft-live"); lb.className=`ftbtn ${s==="newsapi"?"ft-on":"ft-off"}`;
+  lb.style.background=s==="newsapi"?"#052E16":""; lb.style.color=s==="newsapi"?"#6EE7B7":"";
+  updateHdr(document.getElementById("last-scan").textContent);
+  if(SEL)fetchFeed(SEL);
+}
+
+// ── Modals ────────────────────────────────────────────────────────────
+function openModal(id){
+  if(id==="mclaude"){document.getElementById("ci").value=CK?"(저장됨 — 변경하려면 새 키 입력)":"";document.getElementById("rm-c").style.display=CK?"inline-flex":"none";}
+  if(id==="mnews"){document.getElementById("ni").value=NK;document.getElementById("rm-n").style.display=NK?"inline-flex":"none";}
+  if(id==="memail"){renderThresh();renderEList();}
+  document.getElementById(id).classList.add("open");
+}
+function closeModal(id){document.getElementById(id).classList.remove("open");}
+function sanitizeKey(raw){
+  // 보이지 않는 특수문자(줄바꿈,탭,전각공백,제어문자,zero-width 등) 제거 + 일반 공백 제거
+  return raw.replace(/[\r\n\t]/g,"").replace(/[\u200B-\u200D\uFEFF]/g,"").replace(/\s/g,"").trim();
+}
+function saveClaudeKey(){
+  const raw=document.getElementById("ci").value;
+  if(!raw||raw.includes("(저장됨"))return;
+  const v=sanitizeKey(raw);
+  if(!/^[\x00-\x7F]*$/.test(v)){pushAlert("⚠️ 키에 잘못된 문자가 포함되어 있습니다. 키를 다시 복사해서 붙여넣어 보세요.","outage");return;}
+  if(!v.startsWith("sk-ant-")){pushAlert("⚠️ 올바른 Claude API 키 형식이 아닙니다 (sk-ant-로 시작해야 함)","outage");return;}
+  CK=v;localStorage.setItem("ck",v);closeModal("mclaude");pushAlert("✅ Claude API 키 저장됨","ok");updateKeyBtns();updateSetup();scanCarriers();
+}
+function rmClaudeKey(){CK="";localStorage.removeItem("ck");closeModal("mclaude");updateKeyBtns();updateSetup();}
+function saveNewsKey(){const v=document.getElementById("ni").value.trim();if(v.length<10)return;NK=v;localStorage.setItem("nk",v);closeModal("mnews");pushAlert("✅ NewsAPI 키 저장됨","ok");setFeedSrc("newsapi");updateKeyBtns();}
+function rmNewsKey(){NK="";localStorage.removeItem("nk");closeModal("mnews");setFeedSrc("ai");updateKeyBtns();}
+function setThresh(t){AT=t;localStorage.setItem("at",t);renderThresh();}
+function renderThresh(){["w","o"].forEach(x=>{const t=x==="w"?"warning":"outage";document.getElementById(`tb-${x}`).className=`tbtn ${AT===t?"ton":"toff"}`;});}
+function addEmail(){const el=document.getElementById("ei"),v=el.value.trim();if(v.includes("@")&&!AE.includes(v)){AE.push(v);el.value="";localStorage.setItem("ae",JSON.stringify(AE));renderEList();}}
+function removeEmail(e){AE=AE.filter(x=>x!==e);localStorage.setItem("ae",JSON.stringify(AE));renderEList();}
+function renderEList(){
+  document.getElementById("elist").innerHTML=AE.map(e=>`<div class="eit"><span>${esc(e)}</span><button onclick="removeEmail('${esc(e)}')">×</button></div>`).join("");
+  const b=document.getElementById("email-bar");document.getElementById("ecnt").textContent=AE.length;b.style.display=AE.length?"inline":"none";
+}
+function saveEmail(){closeModal("memail");pushAlert(`✅ 이메일 설정 저장 — ${AE.length}명 · 기준: ${AT}`,"ok");}
+
+// ── Init ──────────────────────────────────────────────────────────────
+updateKeyBtns(); updateSetup(); scanCarriers(); setInterval(scanCarriers,60000);
+</script>
+</body>
+</html>
